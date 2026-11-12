@@ -2,12 +2,9 @@
 
 **A zero-cost, graph-verified multi-agent framework for automated vulnerability remediation (Java).**
 
-This is the code for the paper *"GraphPatch: A Zero-Cost, Graph-Verified Multi-Agent Framework for Automated Vulnerability Remediation"* (M. Sarmila, Srikanth M, Tharshana S, Subhashini J). Everything the paper describes is implemented (Section 1). On top of that, the project adds the improvements the paper lists as future work and threats to validity (Section 2). The paper itself is unchanged.
-
 An LLM Planner, Coder and Critic repair a vulnerability in a loop. One source-to-sink **taint graph** chooses the code the agents see and acts as a **security gate**: a patch is accepted only when it compiles, keeps the tests passing **and** closes the vulnerable path. Final verdicts use **held-out oracles** that no agent sees.
 
 ---
-
 ## 1. Paper → code: where every part of the paper is
 
 ### Approach (Section III)
