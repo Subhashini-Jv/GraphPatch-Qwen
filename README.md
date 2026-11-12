@@ -150,20 +150,3 @@ Every run writes its prompts, replies, diffs, verdicts and critiques to `gp_runs
 
 ---
 
-## 5. Folder layout
-
-```
-README.md               this file
-RUN_QWEN.md             how to fill the paper's numbers with Qwen
-run_qwen.sh / .ps1      run every mode on the 9 paper CVEs and write paper/results.tex
-fill_results.py         runs.jsonl -> LaTeX numbers for the paper
-paper/graphpatch.tex    LaTeX version of the paper with Qwen placeholders (numbers read from results.tex), unchanged
-frontend/               React web workspace (prebuilt in frontend/dist; served by graphpatch_v2.server)
-graphpatch_v2/          the framework (see Section 1 for each file)
-  CHANGES_v3.md         what v3 adds and why
-  README.md             detailed technical notes (Vul4J, CodeQL calibration, CI)
-  catalogues/*.yaml     sources, sinks, sanitizers and guards for Java, Python and JavaScript (declarative)
-  polyglot.py           Tree-sitter taint analysis for Python and JavaScript
-  tests/                120 unit and end-to-end tests
-  sample_results/       calibration and harness-check results
-```
