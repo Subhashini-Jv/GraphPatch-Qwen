@@ -1,0 +1,27 @@
+diff --git a/src/main/java/spark/resource/ClassPathResource.java b/src/main/java/spark/resource/ClassPathResource.java
+index 70bccc0..877bf6a 100644
+--- a/src/main/java/spark/resource/ClassPathResource.java
++++ b/src/main/java/spark/resource/ClassPathResource.java
+@@ -72,8 +72,14 @@ public class ClassPathResource extends AbstractFileResolvingResource {
+      *                    or {@code null} for the thread context class loader
+      * @see ClassLoader#getResourceAsStream(String)
+      */
++    private static boolean isValidPath(String path) {
++        String cleaned = StringUtils.cleanPath(path);
++        return !(cleaned.contains("../") || cleaned.startsWith("..") || path.contains("WEB-INF") || path.contains("META-INF"));
++    }
++
+     public ClassPathResource(String path, ClassLoader classLoader) {
+         Assert.notNull(path, "Path must not be null");
++        Assert.isTrue(isValidPath(path), "Path is not valid");
+         String pathToUse = StringUtils.cleanPath(path);
+         if (pathToUse.startsWith("/")) {
+             pathToUse = pathToUse.substring(1);
+@@ -91,6 +97,7 @@ public class ClassPathResource extends AbstractFileResolvingResource {
+      * @param clazz       the class to load resources with, if any
+      */
+     protected ClassPathResource(String path, ClassLoader classLoader, Class<?> clazz) {
++        Assert.isTrue(isValidPath(path), "Path is not valid");
+         this.path = StringUtils.cleanPath(path);
+         this.classLoader = classLoader;
+         this.clazz = clazz;

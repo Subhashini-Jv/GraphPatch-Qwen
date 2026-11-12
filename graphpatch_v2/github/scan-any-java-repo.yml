@@ -1,0 +1,45 @@
+# Use GraphPatch in ANY Java repository: copy this file to that repository's .github/workflows/
+#
+# It checks out the Java project, fetches GraphPatch, scans for taint paths (path traversal,
+# command injection, XSS, code injection) and shows them under Security > Code scanning and on
+# pull requests. No language model and no API key are used.
+# If the GraphPatch repository is private, add a read-only token as the secret GRAPHPATCH_TOKEN.
+name: GraphPatch scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  graphpatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Get GraphPatch
+        uses: actions/checkout@v5
+        with:
+          repository: Subhashini-Jv/GRAPH-PATCH
+          path: .graphpatch
+          token: ${{ secrets.GRAPHPATCH_TOKEN || github.token }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Scan
+        run: |
+          pip install "javalang>=0.13"
+          PYTHONPATH=.graphpatch python -m graphpatch_v2.sarif . --out graphpatch.sarif
+
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: graphpatch.sarif
+          category: graphpatch

@@ -1,0 +1,5 @@
+# Vul4J CVEs where the developer fix removes taint paths our checker finds (graph feedback applies), 4
+VUL4J-41
+VUL4J-43
+VUL4J-65
+VUL4J-79

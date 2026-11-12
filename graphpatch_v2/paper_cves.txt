@@ -1,0 +1,18 @@
+# Core paper set: the 15 CVEs where the taint checker finds a path on the vulnerable code
+# AND the developers' fix removes at least one of them, so the graph check can judge a patch.
+# (from sample_results/calibration.csv)
+CVE-2022-25842     # one-java-agent, CWE-22
+CVE-2018-1002201   # zt-zip, CWE-22
+CVE-2018-1002200   # plexus-archiver, CWE-22
+CVE-2018-1002202   # zip4j, CWE-22
+CVE-2018-17297     # hutool, CWE-22
+CVE-2020-5405      # CWE-22
+CVE-2020-35460     # CWE-22
+CVE-2018-12036     # CWE-22
+CVE-2022-31194     # CWE-22
+CVE-2022-26049     # CWE-22
+CVE-2022-34662     # CWE-22
+CVE-2023-45278     # CWE-22
+CVE-2023-45277     # CWE-22
+CVE-2020-2261      # CWE-78
+CVE-2018-1000129   # CWE-79

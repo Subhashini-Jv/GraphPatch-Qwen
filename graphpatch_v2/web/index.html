@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GraphPatch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>document.documentElement.dataset.theme = "sidebar";</script>
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230d9488'/><path d='M9 22l5-12 4 8 5-6' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <span class="mark">GP</span><span>GraphPatch</span>
+    </a>
+    <nav id="nav"><span class="ind"></span>
+      <a href="#/" data-route="">Overview</a>
+      <a href="#/scan" data-route="scan">Scan &amp; Fix</a>
+      <a href="#/benchmark" data-route="benchmark">Benchmark</a>
+      <a href="#/results" data-route="results">Results</a>
+    </nav>
+    <div class="status"><span id="status" class="row" style="gap:10px"></span>
+      <div class="themes" id="themes" role="radiogroup" aria-label="Colour theme"></div></div>
+  </header>
+  <main id="view"></main>
+  <footer class="foot">GRAPHPATCH · 2026</footer>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>

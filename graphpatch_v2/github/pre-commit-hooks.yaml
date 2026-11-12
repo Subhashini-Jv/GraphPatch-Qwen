@@ -1,0 +1,13 @@
+# GraphPatch hook for the pre-commit framework (https://pre-commit.com).
+# Copy this entry into the `repos:` list of your .pre-commit-config.yaml. GraphPatch must be importable
+# by the Python on PATH (pip install -r graphpatch_v2/requirements.txt, with graphpatch_v2 on PYTHONPATH).
+# The hook scans the whole project and reports findings only in the staged .java files.
+repos:
+  - repo: local
+    hooks:
+      - id: graphpatch
+        name: GraphPatch taint scan (Java)
+        entry: python -m graphpatch_v2.precommit
+        language: system
+        files: \.java$
+        pass_filenames: false

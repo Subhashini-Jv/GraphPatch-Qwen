@@ -1,0 +1,52 @@
+# GraphPatch CI for this repository. Copy to .github/workflows/graphpatch.yml
+#
+# On every push and pull request it runs the unit tests, scans the Java code with GraphPatch's taint
+# analysis (no language model, no API key) and uploads the findings as SARIF, so they appear under
+# Security > Code scanning and as comments on the changed lines of a pull request.
+# Code scanning is free on public repositories; on a private one it needs GitHub Code Security, and
+# the SARIF file is still saved as a build artifact.
+name: GraphPatch
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # upload SARIF to code scanning
+  actions: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -r graphpatch_v2/requirements.txt
+
+      - name: Unit tests
+        run: python -m pytest -q graphpatch_v2/tests
+
+      - name: Scan Java code (taint paths -> SARIF)
+        # scans the demo project; change the folder to scan your own Java code
+        run: python -m graphpatch_v2.sarif graphpatch_v2/github/demo --out graphpatch.sarif
+
+      - name: Keep the SARIF file
+        uses: actions/upload-artifact@v4
+        with:
+          name: graphpatch-sarif
+          path: graphpatch.sarif
+
+      - name: Show findings in the Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        continue-on-error: true   # private repository without Code Security
+        with:
+          sarif_file: graphpatch.sarif
+          category: graphpatch

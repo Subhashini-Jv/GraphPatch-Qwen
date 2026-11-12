@@ -1,0 +1,232 @@
+{
+"VUL4J-1": [
+"src/main/java/com/alibaba/fastjson/serializer/ObjectArrayCodec.java"
+],
+"VUL4J-10": [
+"src/main/java/org/apache/commons/fileupload/disk/DiskFileItem.java"
+],
+"VUL4J-11": [
+"src/main/java/org/apache/commons/fileupload/FileUploadBase.java",
+"src/main/java/org/apache/commons/fileupload/MultipartStream.java"
+],
+"VUL4J-12": [
+"src/main/java/org/apache/commons/imaging/formats/jpeg/decoder/JpegDecoder.java"
+],
+"VUL4J-13": [
+"src/main/java/org/apache/commons/imaging/formats/rgbe/RgbeInfo.java"
+],
+"VUL4J-14": [
+"src/main/java/org/apache/commons/io/FilenameUtils.java"
+],
+"VUL4J-15": [
+"rt/rs/extensions/providers/src/main/java/org/apache/cxf/jaxrs/provider/atom/AbstractAtomProvider.java"
+],
+"VUL4J-16": [
+"rt/rs/security/sso/saml/src/main/java/org/apache/cxf/rs/security/saml/sso/SAMLSSOResponseValidator.java"
+],
+"VUL4J-17": [
+"httpclient/src/main/java/org/apache/http/client/utils/URIBuilder.java"
+],
+"VUL4J-18": [
+"jspwiki-main/src/main/java/org/apache/wiki/url/DefaultURLConstructor.java"
+],
+"VUL4J-19": [
+"pdfbox/src/main/java/org/apache/pdfbox/pdmodel/encryption/StandardSecurityHandler.java"
+],
+"VUL4J-2": [
+"batik-dom/src/main/java/org/apache/batik/dom/util/SAXDocumentFactory.java"
+],
+"VUL4J-20": [
+"pdfbox/src/main/java/org/apache/pdfbox/cos/COSArray.java"
+],
+"VUL4J-21": [
+"src/main/java/org/apache/xml/security/stax/ext/InputProcessorChain.java",
+"src/main/java/org/apache/xml/security/stax/impl/InputProcessorChainImpl.java",
+"src/main/java/org/apache/xml/security/stax/impl/processor/input/XMLSecurityInputProcessor.java"
+],
+"VUL4J-22": [
+"web/src/main/java/org/apache/shiro/web/util/WebUtils.java"
+],
+"VUL4J-23": [
+"bundles/extensions/xss/src/main/java/org/apache/sling/xss/impl/XSSAPIImpl.java",
+"testing/http/clients/src/main/java/org/apache/sling/testing/clients/html/MicrodataClient.java"
+],
+"VUL4J-24": [
+"bundles/extensions/xss/src/main/java/org/apache/sling/xss/impl/XSSAPIImpl.java"
+],
+"VUL4J-25": [
+"src/main/java/org/apache/sling/xss/impl/XSSAPIImpl.java"
+],
+"VUL4J-26": [
+"core/src/main/java/com/opensymphony/xwork2/validator/validators/URLValidator.java"
+],
+"VUL4J-27": [
+"core/src/main/java/org/apache/struts2/interceptor/CookieInterceptor.java",
+"xwork-core/src/main/java/com/opensymphony/xwork2/ExcludedPatterns.java",
+"xwork-core/src/main/java/com/opensymphony/xwork2/interceptor/ParametersInterceptor.java"
+],
+"VUL4J-28": [
+"core/src/main/java/org/apache/struts2/interceptor/CookieInterceptor.java"
+],
+"VUL4J-29": [
+"core/src/main/java/org/apache/struts2/interceptor/CookieInterceptor.java"
+],
+"VUL4J-3": [
+"camel-core/src/main/java/org/apache/camel/converter/jaxp/XmlConverter.java"
+],
+"VUL4J-30": [
+"core/src/main/java/com/opensymphony/xwork2/validator/validators/URLValidator.java"
+],
+"VUL4J-31": [
+"core/src/main/java/org/apache/struts2/dispatcher/mapper/DefaultActionMapper.java"
+],
+"VUL4J-32": [
+"xwork-core/src/main/java/com/opensymphony/xwork2/security/DefaultExcludedPatternsChecker.java"
+],
+"VUL4J-33": [
+"core/src/main/java/com/opensymphony/xwork2/ognl/OgnlUtil.java"
+],
+"VUL4J-34": [
+"core/src/main/java/com/opensymphony/xwork2/interceptor/I18nInterceptor.java"
+],
+"VUL4J-35": [
+"core/src/main/java/org/apache/struts2/util/TokenHelper.java"
+],
+"VUL4J-37": [
+"arquillian/arquillian-tomee-common/src/main/java/org/apache/openejb/arquillian/common/Setup.java",
+"arquillian/arquillian-tomee-common/src/main/java/org/apache/openejb/arquillian/common/TomEEConfiguration.java",
+"arquillian/arquillian-tomee-embedded/src/main/java/org/apache/openejb/arquillian/embedded/EmbeddedTomEEConfiguration.java",
+"container/openejb-core/src/main/java/org/apache/openejb/core/rmi/BlacklistClassResolver.java",
+"server/openejb-client/src/main/java/org/apache/openejb/client/EjbObjectInputStream.java",
+"tomee/tomee-common/src/main/java/org/apache/tomee/installer/Installer.java"
+],
+"VUL4J-38": [
+"cas-client-core/src/main/java/org/jasig/cas/client/validation/AbstractUrlBasedTicketValidator.java",
+"cas-client-core/src/main/java/org/jasig/cas/client/validation/Cas20ServiceTicketValidator.java"
+],
+"VUL4J-39": [
+"server/src/main/java/org/cloudfoundry/identity/uaa/authentication/UaaAuthenticationDetails.java"
+],
+"VUL4J-4": [
+"camel-core/src/main/java/org/apache/camel/builder/xml/XPathBuilder.java"
+],
+"VUL4J-40": [
+"server/src/main/java/org/cloudfoundry/identity/uaa/security/ScimUserSelfUpdateAllowed.java"
+],
+"VUL4J-41": [
+"src/main/java/org/codehaus/plexus/archiver/AbstractUnArchiver.java"
+],
+"VUL4J-42": [
+"src/main/java/org/codehaus/plexus/util/cli/Commandline.java",
+"src/main/java/org/codehaus/plexus/util/cli/shell/BourneShell.java",
+"src/main/java/org/codehaus/plexus/util/cli/shell/Shell.java"
+],
+"VUL4J-43": [
+"util/src/main/java/org/eclipse/rdf4j/common/io/ZipUtil.java"
+],
+"VUL4J-44": [
+"src/main/java/org/owasp/esapi/codecs/PercentCodec.java"
+],
+"VUL4J-45": [
+"esigate-core/src/main/java/org/esigate/xml/XsltRenderer.java"
+],
+"VUL4J-46": [
+"src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactory.java"
+],
+"VUL4J-47": [
+"src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactory.java"
+],
+"VUL4J-48": [
+"src/main/java/org/primeframework/jwt/JWTDecoder.java"
+],
+"VUL4J-49": [
+"src/main/java/org/primeframework/jwt/JWTDecoder.java"
+],
+"VUL4J-5": [
+"src/main/java/org/apache/commons/compress/archivers/examples/Expander.java"
+],
+"VUL4J-50": [
+"javamelody-core/src/main/java/net/bull/javamelody/HtmlSessionInformationsReport.java"
+],
+"VUL4J-51": [
+"src/main/java/hudson/plugins/ccm/parser/CcmParser.java"
+],
+"VUL4J-52": [
+"src/main/java/org/kohsuke/groovy/sandbox/SandboxTransformer.java"
+],
+"VUL4J-53": [
+"core/src/main/java/hudson/scheduler/CronTab.java"
+],
+"VUL4J-54": [
+"core/src/main/java/hudson/util/XStream2.java"
+],
+"VUL4J-55": [
+"core/src/main/java/hudson/scheduler/CronTab.java"
+],
+"VUL4J-56": [
+"src/main/java/hudson/tasks/junit/SuiteResult.java",
+"src/main/java/hudson/tasks/junit/XMLEntityResolver.java"
+],
+"VUL4J-57": [],
+"VUL4J-58": [
+"src/main/java/hudson/scm/SubversionRepositoryStatus.java",
+"src/main/java/hudson/scm/SubversionStatus.java"
+],
+"VUL4J-59": [
+"src/main/java/org/jsoup/parser/TokeniserState.java"
+],
+"VUL4J-6": [
+"src/main/java/org/apache/commons/compress/archivers/zip/X0017_StrongEncryptionHeader.java"
+],
+"VUL4J-60": [
+"src/main/java/org/owasp/validator/html/scan/MagicSAXFilter.java"
+],
+"VUL4J-63": [],
+"VUL4J-65": [
+"main/src/com/google/refine/importing/ImportingUtilities.java"
+],
+"VUL4J-66": [
+"resteasy-core/src/main/java/org/jboss/resteasy/plugins/delegates/MediaTypeHeaderDelegate.java"
+],
+"VUL4J-67": [
+"src/main/java/org/springframework/data/history/AnnotationRevisionMetadata.java",
+"src/main/java/org/springframework/data/mapping/PropertyPath.java"
+],
+"VUL4J-68": [
+"spring-data-rest-webmvc/src/main/java/org/springframework/data/rest/webmvc/json/patch/AddOperation.java",
+"spring-data-rest-webmvc/src/main/java/org/springframework/data/rest/webmvc/json/patch/PatchOperation.java"
+],
+"VUL4J-69": [
+"spring-webmvc/src/main/java/org/springframework/web/servlet/ResourceServlet.java"
+],
+"VUL4J-7": [
+"src/main/java/org/apache/commons/compress/archivers/zip/ZipArchiveInputStream.java"
+],
+"VUL4J-70": [
+"spring-web/src/main/java/org/springframework/http/HttpRange.java"
+],
+"VUL4J-71": [
+"spring-core/src/main/java/org/springframework/util/MimeTypeUtils.java"
+],
+"VUL4J-73": [
+"core/src/main/java/org/springframework/security/authentication/encoding/PlaintextPasswordEncoder.java"
+],
+"VUL4J-75": [
+"spring-security-oauth2/src/main/java/org/springframework/security/oauth2/provider/endpoint/SpelView.java"
+],
+"VUL4J-77": [
+"modules/swagger-parser/src/main/java/io/swagger/parser/util/DeserializationUtils.java"
+],
+"VUL4J-78": [
+"xstream/src/java/com/thoughtworks/xstream/XStream.java"
+],
+"VUL4J-79": [
+"src/main/java/org/zeroturnaround/zip/ZipUtil.java"
+],
+"VUL4J-8": [
+"src/main/java/org/apache/commons/compress/archivers/zip/NioZipEncoding.java"
+],
+"VUL4J-9": [
+"src/main/java/org/apache/commons/configuration2/YAMLConfiguration.java"
+]
+}

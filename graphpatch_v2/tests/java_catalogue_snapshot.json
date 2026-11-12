@@ -1,0 +1,340 @@
+{
+ "DANGEROUS_LITERAL": {
+  "CWE-022": [
+   "\\.\\.|^\\W*[/\\\\]+\\W*$",
+   false
+  ],
+  "CWE-078": [
+   "[;|&`$<>\\n]|\\\\n",
+   false
+  ],
+  "CWE-079": [
+   "[<>\\\"']|script",
+   true
+  ],
+  "CWE-094": [
+   "[$#{}()\\[\\];]|class|Runtime|exec",
+   true
+  ]
+ },
+ "ENTRY_LIKE": [
+  "entry|header|item",
+  true
+ ],
+ "ENTRY_NAME_GETTERS": [
+  "getEntryName",
+  "getFileName",
+  "getLinkName",
+  "getName",
+  "getPath"
+ ],
+ "ENTRY_SOURCES": [
+  "getNextEntry",
+  "getNextJarEntry",
+  "getNextTarEntry",
+  "getNextZipEntry"
+ ],
+ "FILE_MAKERS": [
+  "File",
+  "Path"
+ ],
+ "FS_CLASSES": [
+  "FileCopyUtils",
+  "FileUtils",
+  "Files",
+  "IOUtils",
+  "Path",
+  "Paths",
+  "StreamUtils"
+ ],
+ "GUARD_CALLS": [
+  "^(getCanonicalPath|getCanonicalFile|toRealPath|normalize|startsWith|contains|indexOf|matches|isInvalid\\w*|isValid\\w*|isSafe\\w*|isAllowed\\w*|isWithin\\w*|check\\w*|validate\\w*|verify\\w*|ensure\\w*|require\\w*|assert\\w*|isTrue|state|equals)$",
+  false
+ ],
+ "GUARD_STMT_CALLS": [
+  "^(isTrue|state|checkArgument|checkState|validate\\w*|check\\w*|verify\\w*|ensure\\w*|require(?!NonNull)\\w*|assert\\w*)$",
+  false
+ ],
+ "LOADER_SINKS": [
+  "forward",
+  "getFileObject",
+  "getRealPath",
+  "getRequestDispatcher",
+  "getResource",
+  "getResourceAsStream",
+  "getResources",
+  "include",
+  "sendFile"
+ ],
+ "NON_PROPAGATING": [
+  "booleanValue",
+  "canRead",
+  "canWrite",
+  "checkArgument",
+  "checkNotNull",
+  "close",
+  "compareTo",
+  "contains",
+  "debug",
+  "endsWith",
+  "equals",
+  "equalsIgnoreCase",
+  "error",
+  "exists",
+  "flush",
+  "getClass",
+  "hasLength",
+  "hasMoreElements",
+  "hasNext",
+  "hasText",
+  "hashCode",
+  "indexOf",
+  "info",
+  "isAbsolute",
+  "isBlank",
+  "isDebugEnabled",
+  "isDirectory",
+  "isEmpty",
+  "isFile",
+  "isHidden",
+  "isInfoEnabled",
+  "isTrue",
+  "lastIndexOf",
+  "length",
+  "log",
+  "matches",
+  "notNull",
+  "parseBoolean",
+  "parseInt",
+  "parseLong",
+  "requireNonNull",
+  "size",
+  "startsWith",
+  "trace",
+  "valueOf",
+  "warn"
+ ],
+ "PATH_MAKER_CALLS": [
+  "get",
+  "getAbsoluteFile",
+  "getCanonicalFile",
+  "getParentFile",
+  "normalize",
+  "of",
+  "resolve",
+  "resolveSibling",
+  "toAbsolutePath",
+  "toFile",
+  "toPath"
+ ],
+ "REQUEST_SOURCES": [
+  "getContextPath",
+  "getCookies",
+  "getHeader",
+  "getHeaders",
+  "getParameter",
+  "getParameterMap",
+  "getParameterValues",
+  "getPathInfo",
+  "getPathTranslated",
+  "getQueryString",
+  "getRemoteUser",
+  "getRequestURI",
+  "getRequestURL",
+  "getServletPath"
+ ],
+ "SANITIZER_PAT": {
+  "CWE-022": [
+   "^(getName|getFileName|sanitiz\\w*|basename|normalizeAndCheck\\w*|safe\\w*|validat\\w*Path\\w*)$",
+   true
+  ],
+  "CWE-078": [
+   "^(sanitiz\\w*|quote\\w*|escape\\w*|validat\\w*)$",
+   true
+  ],
+  "CWE-079": [
+   "(escape|encode|sanitiz|htmlEscape|forHtml|stripTags|clean)",
+   true
+  ],
+  "CWE-094": [
+   "^(sanitiz\\w*|escape\\w*|quote\\w*)$",
+   true
+  ]
+ },
+ "SINKS": {
+  "CWE-022": {
+   "arg": [
+    "copyDirectory",
+    "copyFile",
+    "copyInputStreamToFile",
+    "copyURLToFile",
+    "createDirectories",
+    "createDirectory",
+    "createFile",
+    "deleteDirectory",
+    "deleteIfExists",
+    "forceDelete",
+    "forceMkdir",
+    "forward",
+    "getFileObject",
+    "getRealPath",
+    "getRequestDispatcher",
+    "getResource",
+    "getResourceAsStream",
+    "getResources",
+    "include",
+    "moveFile",
+    "newBufferedReader",
+    "newBufferedWriter",
+    "newInputStream",
+    "newOutputStream",
+    "openInputStream",
+    "openOutputStream",
+    "readAllBytes",
+    "readAllLines",
+    "readFileToByteArray",
+    "readFileToString",
+    "readLines",
+    "readString",
+    "sendFile",
+    "writeByteArrayToFile",
+    "writeString",
+    "writeStringToFile"
+   ],
+   "ctor": [
+    "FileDataSource",
+    "FileInputStream",
+    "FileOutputStream",
+    "FileReader",
+    "FileSystemResource",
+    "FileWriter",
+    "JarFile",
+    "PrintStream",
+    "PrintWriter",
+    "RandomAccessFile",
+    "UrlResource",
+    "ZipFile"
+   ],
+   "fsarg": [
+    "copy",
+    "delete",
+    "lines",
+    "list",
+    "move",
+    "newDirectoryStream",
+    "walk",
+    "write"
+   ],
+   "recv": [
+    "createNewFile",
+    "delete",
+    "deleteOnExit",
+    "list",
+    "listFiles",
+    "mkdir",
+    "mkdirs",
+    "renameTo",
+    "setExecutable",
+    "setWritable",
+    "transferTo"
+   ],
+   "return_kind": "file"
+  },
+  "CWE-078": {
+   "arg": [
+    "addArgument",
+    "addArguments",
+    "command",
+    "exec",
+    "execute",
+    "parse"
+   ],
+   "ctor": [
+    "ProcessBuilder"
+   ],
+   "fsarg": [],
+   "recv": [
+    "start"
+   ],
+   "return_kind": null
+  },
+  "CWE-079": {
+   "arg": [
+    "addHeader",
+    "body",
+    "entity",
+    "format",
+    "html",
+    "innerHTML",
+    "print",
+    "printf",
+    "println",
+    "sendError",
+    "setBody",
+    "write",
+    "writeText"
+   ],
+   "ctor": [],
+   "fsarg": [],
+   "recv": [],
+   "return_kind": "str"
+  },
+  "CWE-094": {
+   "arg": [
+    "buildConstraintViolationWithTemplate",
+    "compile",
+    "compileExpression",
+    "createMethodExpression",
+    "createTemplate",
+    "createValueExpression",
+    "eval",
+    "evaluate",
+    "evaluateExpression",
+    "executeExpression",
+    "forName",
+    "getValue",
+    "interpolate",
+    "invokeMethod",
+    "loadClass",
+    "mergeTemplate",
+    "parseClass",
+    "parseExpression",
+    "parseScript",
+    "process",
+    "runScript",
+    "setValue"
+   ],
+   "ctor": [
+    "GroovyShell",
+    "ScriptEngineManager",
+    "SpelExpressionParser",
+    "Template"
+   ],
+   "fsarg": [],
+   "recv": [
+    "getValue",
+    "newInstance",
+    "run",
+    "setValue"
+   ],
+   "return_kind": null
+  }
+ },
+ "STRINGISH": [
+  "CharSequence",
+  "String",
+  "StringBuffer",
+  "StringBuilder"
+ ],
+ "WEAK_GUARD_CALLS": [
+  "contains",
+  "equals",
+  "equalsIgnoreCase",
+  "indexOf",
+  "matches"
+ ],
+ "WRAP_GUARD_CALLS": [
+  "^(isValid\\w*|isSafe\\w*|isAllowed\\w*|isWithin\\w*|isUnder\\w*|isChild\\w*|isSubPath\\w*|isInside\\w*)$",
+  false
+ ]
+}

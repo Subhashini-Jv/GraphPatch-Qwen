@@ -1,0 +1,78 @@
+# GraphPatch language specification: Java.
+# Every source, sink, sanitizer and guard the taint graph uses (paper, Section III-A/III-B) is declared here,
+# not hard-coded. graphpatch_v2/catalogue.py loads it; taint.py reads the loaded values.
+# Sets are lists; patterns are Python regular expressions. Keys of `sinks` are the CWE ids.
+#   sinks.<cwe>.ctor   constructors that are a sink when given tainted data   (new FileInputStream(x))
+#   sinks.<cwe>.arg    calls that are a sink when a tainted value is an argument (exec(x))
+#   sinks.<cwe>.fsarg  calls that are a sink only on a filesystem class or a path argument (Files.write(p, ..))
+#   sinks.<cwe>.recv   calls that are a sink when invoked on a tainted object  (f.mkdirs())
+# Adding a language means a new file like this one plus a parser front end (future work in the paper).
+language: java
+parser: javalang
+sources:
+  request_getters: [getContextPath, getCookies, getHeader, getHeaders, getParameter, getParameterMap, getParameterValues,
+    getPathInfo, getPathTranslated, getQueryString, getRemoteUser, getRequestURI, getRequestURL, getServletPath]
+  archive_entry_iterators: [getNextEntry, getNextJarEntry, getNextTarEntry, getNextZipEntry]
+  archive_entry_name_getters: [getEntryName, getFileName, getLinkName, getName, getPath]
+  archive_entry_variable: {regex: entry|header|item, ignore_case: true}
+types:
+  string_like: [CharSequence, String, StringBuffer, StringBuilder]
+  filesystem_classes: [FileCopyUtils, FileUtils, Files, IOUtils, Path, Paths, StreamUtils]
+  path_makers: [File, Path]
+  path_maker_calls: [get, getAbsoluteFile, getCanonicalFile, getParentFile, normalize, of, resolve, resolveSibling,
+    toAbsolutePath, toFile, toPath]
+  loader_sinks: [forward, getFileObject, getRealPath, getRequestDispatcher, getResource, getResourceAsStream, getResources,
+    include, sendFile]
+sinks:
+  CWE-022:
+    ctor: [FileDataSource, FileInputStream, FileOutputStream, FileReader, FileSystemResource, FileWriter, JarFile,
+      PrintStream, PrintWriter, RandomAccessFile, UrlResource, ZipFile]
+    arg: [copyDirectory, copyFile, copyInputStreamToFile, copyURLToFile, createDirectories, createDirectory, createFile,
+      deleteDirectory, deleteIfExists, forceDelete, forceMkdir, forward, getFileObject, getRealPath, getRequestDispatcher,
+      getResource, getResourceAsStream, getResources, include, moveFile, newBufferedReader, newBufferedWriter, newInputStream,
+      newOutputStream, openInputStream, openOutputStream, readAllBytes, readAllLines, readFileToByteArray, readFileToString,
+      readLines, readString, sendFile, writeByteArrayToFile, writeString, writeStringToFile]
+    fsarg: [copy, delete, lines, list, move, newDirectoryStream, walk, write]
+    recv: [createNewFile, delete, deleteOnExit, list, listFiles, mkdir, mkdirs, renameTo, setExecutable, setWritable,
+      transferTo]
+    return_kind: file
+  CWE-078:
+    ctor: [ProcessBuilder]
+    arg: [addArgument, addArguments, command, exec, execute, parse]
+    fsarg: []
+    recv: [start]
+    return_kind: null
+  CWE-079:
+    ctor: []
+    arg: [addHeader, body, entity, format, html, innerHTML, print, printf, println, sendError, setBody, write, writeText]
+    fsarg: []
+    recv: []
+    return_kind: str
+  CWE-094:
+    ctor: [GroovyShell, ScriptEngineManager, SpelExpressionParser, Template]
+    arg: [buildConstraintViolationWithTemplate, compile, compileExpression, createMethodExpression, createTemplate,
+      createValueExpression, eval, evaluate, evaluateExpression, executeExpression, forName, getValue, interpolate,
+      invokeMethod, loadClass, mergeTemplate, parseClass, parseExpression, parseScript, process, runScript, setValue]
+    fsarg: []
+    recv: [getValue, newInstance, run, setValue]
+    return_kind: null
+sanitizers:
+  CWE-022: {regex: ^(getName|getFileName|sanitiz\w*|basename|normalizeAndCheck\w*|safe\w*|validat\w*Path\w*)$, ignore_case: true}
+  CWE-078: {regex: ^(sanitiz\w*|quote\w*|escape\w*|validat\w*)$, ignore_case: true}
+  CWE-079: {regex: (escape|encode|sanitiz|htmlEscape|forHtml|stripTags|clean), ignore_case: true}
+  CWE-094: {regex: ^(sanitiz\w*|escape\w*|quote\w*)$, ignore_case: true}
+guards:
+  non_propagating_calls: [booleanValue, canRead, canWrite, checkArgument, checkNotNull, close, compareTo, contains,
+    debug, endsWith, equals, equalsIgnoreCase, error, exists, flush, getClass, hasLength, hasMoreElements, hasNext,
+    hasText, hashCode, indexOf, info, isAbsolute, isBlank, isDebugEnabled, isDirectory, isEmpty, isFile, isHidden,
+    isInfoEnabled, isTrue, lastIndexOf, length, log, matches, notNull, parseBoolean, parseInt, parseLong, requireNonNull,
+    size, startsWith, trace, valueOf, warn]
+  guard_calls: {regex: ^(getCanonicalPath|getCanonicalFile|toRealPath|normalize|startsWith|contains|indexOf|matches|isInvalid\w*|isValid\w*|isSafe\w*|isAllowed\w*|isWithin\w*|check\w*|validate\w*|verify\w*|ensure\w*|require\w*|assert\w*|isTrue|state|equals)$}
+  wrapper_guard_calls: {regex: ^(isValid\w*|isSafe\w*|isAllowed\w*|isWithin\w*|isUnder\w*|isChild\w*|isSubPath\w*|isInside\w*)$}
+  guard_statement_calls: {regex: '^(isTrue|state|checkArgument|checkState|validate\w*|check\w*|verify\w*|ensure\w*|require(?!NonNull)\w*|assert\w*)$'}
+  weak_guard_calls: [contains, equals, equalsIgnoreCase, indexOf, matches]
+  dangerous_literals:
+    CWE-022: {regex: '\.\.|^\W*[/\\]+\W*$'}
+    CWE-078: {regex: '[;|&`$<>\n]|\\n'}
+    CWE-079: {regex: '[<>\"'']|script', ignore_case: true}
+    CWE-094: {regex: '[$#{}()\[\];]|class|Runtime|exec', ignore_case: true}

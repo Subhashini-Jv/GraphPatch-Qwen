@@ -1,0 +1,12 @@
+javalang>=0.13
+networkx>=3.1  # program-wide taint graph (graph.py)
+PyYAML>=6.0  # language catalogues (catalogues/java.yaml)
+tree-sitter>=0.23  # Python / JavaScript front end (polyglot.py)
+tree-sitter-python>=0.23
+tree-sitter-javascript>=0.23
+requests>=2.28
+pytest>=7  # only for the unit tests
+httpx2>=2.13  # test client used by the web app tests (Starlette 1.x)
+fastapi>=0.110  # web app (server.py)
+uvicorn>=0.29
+python-multipart>=0.0.9

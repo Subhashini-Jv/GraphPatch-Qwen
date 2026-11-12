@@ -1,0 +1,29 @@
+[CWE-022] ClassPathResource.exists line 120: tainted data reaches `getResource(...)`
+    1. parameter `path` of ClassPathResource.ClassPathResource (line 75) is attacker-controlled
+    2. `cleanPath(...)` (line 77)
+    3. `pathToUse` = ... (line 77)
+    4. `substring(...)` (line 79)
+    5. `pathToUse` = ... (line 79)
+    6. field `this.path` assigned in ClassPathResource.ClassPathResource (line 81)
+    7. passed to `getResource(...)` (line 120)
+    8. SINK `getResource(...)` at line 120
+
+[CWE-022] ClassPathResource.getInputStream line 139: tainted data reaches `getResourceAsStream(...)`
+    1. parameter `path` of ClassPathResource.ClassPathResource (line 75) is attacker-controlled
+    2. `cleanPath(...)` (line 77)
+    3. `pathToUse` = ... (line 77)
+    4. `substring(...)` (line 79)
+    5. `pathToUse` = ... (line 79)
+    6. field `this.path` assigned in ClassPathResource.ClassPathResource (line 81)
+    7. passed to `getResourceAsStream(...)` (line 139)
+    8. SINK `getResourceAsStream(...)` at line 139
+
+[CWE-022] ClassPathResource.getURL line 161: tainted data reaches `getResource(...)`
+    1. parameter `path` of ClassPathResource.ClassPathResource (line 75) is attacker-controlled
+    2. `cleanPath(...)` (line 77)
+    3. `pathToUse` = ... (line 77)
+    4. `substring(...)` (line 79)
+    5. `pathToUse` = ... (line 79)
+    6. field `this.path` assigned in ClassPathResource.ClassPathResource (line 81)
+    7. passed to `getResource(...)` (line 161)
+    8. SINK `getResource(...)` at line 161

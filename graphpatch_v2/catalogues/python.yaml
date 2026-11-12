@@ -1,0 +1,43 @@
+# GraphPatch language specification: Python (tree-sitter front end, graphpatch_v2/polyglot.py).
+# Same four CWEs as Java. Matching rules:
+#   a call name with a dot (os.system) matches a call whose callee text ends with it;
+#   a bare name (open) matches the last part of the callee (open(...), io.open(...)).
+language: python
+parser: tree-sitter-python
+extensions: [.py]
+skip_paths: ["/test/", "/tests/", "test_", "_test.py", "/.", "/venv/", "/site-packages/", "/node_modules/"]
+sources:
+  # an expression whose text starts like this is untrusted input
+  untrusted_prefix: {regex: '^(flask\.)?request\.(args|form|values|json|get_json|cookies|headers|files|data|query_string|view_args|GET|POST|FILES|COOKIES|META|body|query_params|path_params)\b|^sys\.argv\b'}
+  # calls that return untrusted input
+  untrusted_calls: [input, raw_input]
+  # archive member names (zip-slip)
+  archive_name: {regex: '\.(filename|name)$'}
+  archive_iterators: [infolist, getmembers, namelist, getnames]
+sinks:
+  CWE-022:
+    calls: [open, io.open, os.open, os.remove, os.unlink, os.rmdir, os.removedirs, os.makedirs, os.mkdir, os.rename,
+            os.replace, os.listdir, os.scandir, os.chmod, shutil.rmtree, shutil.copy, shutil.copy2, shutil.copyfile,
+            shutil.copytree, shutil.move, send_file, send_from_directory, FileResponse, read_text, read_bytes,
+            write_text, write_bytes, unlink, mkdir, rmdir, extract, extractall]
+  CWE-078:
+    calls: [os.system, os.popen, os.execl, os.execlp, os.execv, os.execvp, os.spawnl, os.spawnlp, subprocess.call,
+            subprocess.run, subprocess.Popen, subprocess.check_call, subprocess.check_output, subprocess.getoutput,
+            subprocess.getstatusoutput, commands.getoutput, pexpect.spawn, pexpect.run]
+  CWE-079:
+    calls: [render_template_string, Markup, markupsafe.Markup, mark_safe, HttpResponse, make_response, Response,
+            HTMLResponse]
+  CWE-094:
+    calls: [eval, exec, compile, __import__, importlib.import_module, pickle.loads, pickle.load, marshal.loads,
+            yaml.load, yaml.unsafe_load, dill.loads, jsonpickle.decode, execfile]
+sanitizers:
+  CWE-022: {regex: '(^|\.)(basename|secure_filename|safe_join|sanitize\w*)$'}
+  CWE-078: {regex: '(^|\.)(quote|shlex\.quote|pipes\.quote|sanitize\w*)$'}
+  CWE-079: {regex: '(^|\.)(escape|html\.escape|markupsafe\.escape|bleach\.clean|clean|sanitize\w*|quote|urlencode)$'}
+  CWE-094: {regex: '(^|\.)(literal_eval|safe_load|int|float|bool)$'}
+guards:
+  # `if <test>: raise/return/abort(...)` cleans the variables in <test> when the test looks like a containment
+  # or allow-list check
+  guard_test: {regex: 'startswith|is_relative_to|commonpath|realpath|abspath|normpath|resolve\(|fullmatch|match\(|\bnot in\b|\bin ALLOWED|isalnum|isidentifier|"\.\."|''\.\.'''}
+  exits: [raise_statement, return_statement]
+  exit_calls: {regex: '(^|\.)(abort|exit|sys\.exit|HttpResponseForbidden|HttpResponseBadRequest)$'}
