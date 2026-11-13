@@ -149,24 +149,4 @@ Python (Flask/Django style) and JavaScript (Node/Express) projects are also scan
 
 ---
 
-## 4. Folder layout
 
-```
-README.md                this file
-run_qwen.sh / .ps1       run every mode on the benchmark CVEs with Qwen
-frontend/                React web workspace (prebuilt in frontend/dist)
-graphpatch_v2/
-  taint.py               taint analysis (fixed-point propagation)
-  javasrc.py             Java parsing and SEARCH/REPLACE edit application
-  agents.py              prompts, path-sliced context, Critic JSON schema
-  pipeline.py            the repair loop and all modes
-  validator.py build.py  gates and held-out oracles
-  llm.py                 one OpenAI-compatible client (constrained JSON decoding)
-  ml.py                  TF-IDF log analysis, embeddings, KNN fix memory
-  analyze_clusters.py    K-Means difficulty clusters
-  stats.py               Wilson intervals, exact McNemar tests
-  graph.py               NetworkX program graph
-  scanner.py server.py   project scanner, risk score, web API
-  catalogues/*.yaml      sources, sinks, sanitizers and guards for Java, Python and JavaScript
-  tests/                 unit and end-to-end tests
-```
