@@ -72,6 +72,8 @@ class Spec:
     archive_name: re.Pattern
     archive_iterators: set
     sinks: dict          # cwe -> list of call names
+    args: dict           # cwe -> {call name or "*": [argument index | "receiver"]}: where the dangerous value goes
+    receivers: dict      # cwe -> {call name: regex}: a method call is a sink only on a matching object
     properties: dict     # cwe -> list of property names (JS assignment sinks)
     sanitizers: dict     # cwe -> regex
     guard_test: re.Pattern
@@ -86,6 +88,8 @@ def spec(language: str) -> Spec:
     return Spec(language, tuple(d["extensions"]), tuple(d.get("skip_paths") or ()), _rx(s["untrusted_prefix"]),
                 set(s.get("untrusted_calls") or ()), _rx(s["archive_name"]), set(s.get("archive_iterators") or ()),
                 {c: list(v.get("calls") or ()) for c, v in d["sinks"].items()},
+                {c: dict(v.get("args") or {}) for c, v in d["sinks"].items()},
+                {c: {k: _rx(r) for k, r in (v.get("receivers") or {}).items()} for c, v in d["sinks"].items()},
                 {c: list(v.get("properties") or ()) for c, v in d["sinks"].items()},
                 {c: _rx(v) for c, v in d["sanitizers"].items()},
                 _rx(g["guard_test"]), set(g.get("exits") or ()), _rx(g["exit_calls"]))
@@ -432,12 +436,27 @@ class _Analysis:
             hit = _match_call(callee, self.sp.sinks.get(cwe, []))
             if not hit:
                 continue
-            args = n.child_by_field_name("arguments")
-            r = _best(self.eval(a, line) for a in (args.named_children if args is not None else [])
-                      if a.type != "keyword_argument")  # shell=True, mode="w", ... are not data
-            if not r and callee_node.type in self.N["member"] and "." not in hit:
+            obj = None
+            if callee_node.type in self.N["member"]:
                 obj = callee_node.child_by_field_name("object") or callee_node.child_by_field_name("value")
-                r = self.eval(obj, line)
+            rx = self.sp.receivers.get(cwe, {}).get(hit)
+            if rx is not None and obj is not None and not rx.search(self.text(obj)):
+                continue  # e.g. modal.open(...) is not fs.open(...)
+            args = n.child_by_field_name("arguments")
+            pos = self.sp.args.get(cwe, {})
+            pos = pos.get(hit, pos.get("*"))
+            if pos is None:
+                r = _best(self.eval(a, line) for a in (args.named_children if args is not None else [])
+                          if a.type not in ("keyword_argument", "comment"))  # shell=True, mode="w", ... are not data
+                if not r and obj is not None and "." not in hit:
+                    r = self.eval(obj, line)
+            else:
+                # only the arguments the catalogue names carry the dangerous value (the path, not file content)
+                plain = [a for a in (args.named_children if args is not None else [])
+                         if a.type not in ("keyword_argument", "comment", "list_splat", "dictionary_splat", "spread_element")]
+                r = _best(self.eval(plain[i], line) for i in pos if isinstance(i, int) and i < len(plain))
+                if not r and "receiver" in pos and obj is not None:
+                    r = self.eval(obj, line)
             if r:
                 self.add(cwe, n, f"{_short(callee, 40)}(...)", r)
 

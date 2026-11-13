@@ -4,4 +4,4 @@ A patch counts as a fix only when the project builds, its tests show no new
 failures, and the source-to-sink taint path found on the vulnerable code is gone.
 """
 
-__version__ = "v3.0.0"
+__version__ = "v3.5.1"

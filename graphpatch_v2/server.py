@@ -52,7 +52,7 @@ ROOT = Path(os.environ.get("GP_ROOT", PROJECT / "gp_runs")).resolve()
 DATASET = os.environ.get("GP_DATASET", str(PROJECT / "cwe-bench-java-master"))
 UPLOADS = ROOT / "uploads"
 from . import __version__
-VERSION = f"{__version__} · 20 Oct 2026"
+VERSION = f"{__version__} · 13 Nov 2026"
 # v2.19.19: the agents can use another provider when Gemini is not available (set GP_LLM_PROVIDER before starting)
 PROVIDER = os.environ.get("GP_LLM_PROVIDER", "gemini")
 DEFAULT_MODELS = {"gemini": "gemini-3.8-flash", "groq": "llama-3.3-70b-versatile"}
@@ -667,7 +667,7 @@ def _run_fix(job: Job, scan_id: str, req: FixRequest) -> dict:
         job.log("critic", "Critic is explaining what went wrong...")
         try:
             critique = llm.chat(system, f"{brief}\n\nPATCH:\n{diff[:8000] or '(not applied)'}\n\nVALIDATOR OUTPUT:\n"
-                            f"{verdict['feedback'][:6000]}\n\n{agents.CRITIC_FORMAT}", role="critic")
+                            f"{verdict['feedback'][:6000]}\n\n{agents.CRITIC_FORMAT}", role="critic", json_mode=True)
         except LLMError as e:
             job.log("check", f"The Critic got no answer ({e}). Showing the result of patch {it}.")
             break

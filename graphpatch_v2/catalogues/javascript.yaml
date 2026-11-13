@@ -3,7 +3,7 @@
 language: javascript
 parser: tree-sitter-javascript
 extensions: [.js, .jsx, .mjs, .cjs]
-skip_paths: ["/test/", "/tests/", "/__tests__/", ".test.js", ".spec.js", "/.", "/node_modules/", "/dist/", "/build/", ".min.js"]
+skip_paths: ["/test/", "/tests/", "/__tests__/", ".test.js", ".spec.js", "/.", "/node_modules/", "/dist/", "/build/", ".min.js", "/vendor/", "/bower_components/"]
 sources:
   untrusted_prefix: {regex: '^(req|request|ctx\.request|ctx)\.(query|body|params|cookies|signedCookies|headers|url|originalUrl|path|files|file)\b|^process\.argv\b|^(window\.)?location\.(hash|search|href)\b|^document\.(cookie|referrer|URL)\b'}
   untrusted_calls: [prompt]
@@ -14,6 +14,17 @@ sinks:
     calls: [readFile, readFileSync, writeFile, writeFileSync, appendFile, appendFileSync, createReadStream,
             createWriteStream, unlink, unlinkSync, rm, rmSync, rmdir, rmdirSync, mkdir, mkdirSync, rename, renameSync,
             readdir, readdirSync, open, openSync, copyFile, copyFileSync, sendFile, download, res.sendFile, res.download]
+    # v3.5: only the path arguments count (0-based). File content (fs.writeFile(path, data)) and options
+    # ({root: ...}) are not paths, and the receiver (res in res.sendFile) is never a path.
+    args: {"*": [0], rename: [0, 1], renameSync: [0, 1], copyFile: [0, 1], copyFileSync: [0, 1]}
+    # v3.5: names that are common methods elsewhere (window.open, xhr.open, modal.open, ...) are file sinks only
+    # when called as a plain function (destructured from fs) or on an fs-like object.
+    receivers:
+      open: {regex: '(^|\.)(fs|fsp|fse|fsExtra|fsPromises|promises)$|require\([''"](node:)?fs(/promises|-extra)?[''"]\)$'}
+      rename: {regex: '(^|\.)(fs|fsp|fse|fsExtra|fsPromises|promises)$|require\([''"](node:)?fs(/promises|-extra)?[''"]\)$'}
+      rm: {regex: '(^|\.)(fs|fsp|fse|fsExtra|fsPromises|promises)$|require\([''"](node:)?fs(/promises|-extra)?[''"]\)$'}
+      mkdir: {regex: '(^|\.)(fs|fsp|fse|fsExtra|fsPromises|promises)$|require\([''"](node:)?fs(/promises|-extra)?[''"]\)$'}
+      download: {regex: '^(res|response)$'}
   CWE-078:
     calls: [exec, execSync, spawn, spawnSync, execFile, execFileSync, child_process.exec, shelljs.exec, shell.exec]
   CWE-079:

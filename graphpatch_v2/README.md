@@ -208,6 +208,8 @@ v2.19.18: easier to use: Scan & Fix shows the 4 steps (choose, see paths, fix, c
 
 v2.19.19: "Repair with agents" can use a free Groq key when Gemini is blocked: set $env:GP_LLM_PROVIDER = "groq" and $env:GROQ_API_KEY before starting the app (default model llama-3.3-70b-versatile; change with $env:GP_LLM_MODEL). Gemini stays the default. Groq was not reachable from the build machine, so this was tested with a fake key only. Paper and benchmark results all come from gemini-3.8-flash.
 
+v3.5: Python and JavaScript checker fixes from the first end-to-end test (Express `res.sendFile` and `fs.writeFile` false positives, Flask `f.save()` uploads now found, `.open()` only on fs objects, vendor folders skipped). Java and the paper's numbers are unchanged. Details: [CHANGES_v3.md](CHANGES_v3.md#v35-13-nov-2026-python-and-javascript-checker-fixes).
+
 v2.19.20: when the agents fail, the page explains why in plain words (blocked Google account, wrong key, quota) and points to Rule fix and Replay; the key help no longer mentions Groq (the Groq option still works if GP_LLM_PROVIDER=groq is set).
 
 ## GitHub code scanning (SARIF)

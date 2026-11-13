@@ -77,10 +77,24 @@ def main(argv=None):
     r.add_argument("--codeql-oracle", nargs="?", const="auto", default=None, metavar="PATH",
                    help="add CodeQL as an independent held-out oracle (CodeQL bundle found as for codeql.py, or give its path)")
     r.add_argument("--codeql-timeout", type=int, default=3600, help="seconds per CodeQL analysis")
-    r.add_argument("--paper-mode", action="store_true",
-                   help="reproduce the paper exactly: free-text Critic, exact/whitespace SEARCH matching only, the paper's guard rules")
+    r.add_argument("--paper-mode", "--core-only", action="store_true",
+                   help="reproduce the original v2 runs: free-text Critic, exact/whitespace SEARCH matching only, the v2 guard rules "
+                        "(the current paper describes the JSON Critic; do not use this for the paper's GraphPatch numbers)")
     r.add_argument("--free-critic", action="store_true",
                    help="free-text Critic as in the original paper runs (default: Critic answers in checked JSON)")
+    r.add_argument("--tfidf-log", action="store_true",
+                   help="kept for older commands; TF-IDF log terms are already on by default in full/seeded")
+    r.add_argument("--no-tfidf-log", action="store_true",
+                   help="do not give the Critic the TF-IDF key terms and lines of compile/test logs (on by default in full/seeded)")
+    r.add_argument("--memory", metavar="PATH", default=None,
+                   help="fix memory (JSON lines, default <root>/results/fix_memory.jsonl): up to 10 verified fixes from the "
+                        "training split; the Planner gets the k most similar ones from OTHER repositories "
+                        "(embeddings + KNN, cosine similarity; ml.py)")
+    r.add_argument("--no-memory", action="store_true", help="run GraphPatch without the fix memory")
+    r.add_argument("--memory-build", action="store_true",
+                   help="fill the fix memory: store verified fixes of training-split CVEs (never the CVEs in "
+                        "paper_cves.txt) and retrieve nothing; run this before the evaluation runs")
+    r.add_argument("--memory-k", type=int, default=3, help="past fixes shown to the Planner (default 3)")
     r.add_argument("--cves-file", help="text file with one CVE id per line (e.g. graphpatch_v2/paper_cves.txt)")
     r.add_argument("--rpm", type=float, help="max model requests per minute (free Gemini tier: 5)")
     r.add_argument("--skip-done", action="store_true",
@@ -131,7 +145,9 @@ def main(argv=None):
                      use_docker=a.docker, build_timeout=a.build_timeout, test_timeout=a.test_timeout,
                      pov=not a.no_pov, llm=llm, structured_critic=not (a.free_critic or a.paper_mode),
                      fuzzy_edits=not a.paper_mode, strict_guards=not a.paper_mode,
-                     codeql=codeql_path, codeql_timeout=a.codeql_timeout)
+                     codeql=codeql_path, codeql_timeout=a.codeql_timeout,
+                     tfidf_log=not a.no_tfidf_log, memory_k=a.memory_k, memory_build=a.memory_build,
+                     memory=None if a.no_memory else (Path(a.memory) if a.memory else res / "fix_memory.jsonl"))
         ids = list(a.cves or [])
         if a.cves_file:
             ids += [l.split("#")[0].strip() for l in Path(a.cves_file).read_text(encoding="utf-8", errors="replace").splitlines() if l.split("#")[0].strip()]

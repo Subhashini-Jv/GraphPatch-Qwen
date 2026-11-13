@@ -5,6 +5,7 @@ records an error for that CVE instead of inventing a patch."""
 from __future__ import annotations
 
 import os
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -72,12 +73,19 @@ class LLM:
         self.min_interval = 60.0 / rpm if rpm else 0.0
         self._last_call = 0.0
 
-    def chat(self, system: str, user: str, role: str = "") -> str:
+    def chat(self, system: str, user: str, role: str = "", json_mode: bool = False) -> str:
+        """One chat completion. json_mode=True asks the server for constrained decoding into a JSON object
+        (OpenAI-compatible response_format={"type": "json_object"}; Gemini, Ollama, Groq, OpenAI, DeepSeek and
+        OpenRouter accept it): the server only lets the model emit tokens that keep the reply valid JSON.
+        If a server rejects the parameter, the call is repeated once without it and the log records that."""
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         body = {"model": self.model, "temperature": self.temperature, "max_tokens": self.max_tokens,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+        constrained = bool(json_mode) and os.environ.get("GP_LLM_JSON_MODE", "1") != "0"
+        if constrained:
+            body["response_format"] = {"type": "json_object"}
         last = None
         for attempt in range(self.max_attempts):
             wait = self._last_call + self.min_interval - time.time()
@@ -109,6 +117,14 @@ class LLM:
                     self.on_retry(f"model busy (HTTP {r.status_code}), trying again ({attempt + 2}/{self.max_attempts})")
                 time.sleep(min(90, int(r.headers.get("retry-after", 0) or 0) or 10 * 2 ** attempt))
                 continue
+            if r.status_code in (400, 422) and "response_format" in body and re.search(
+                    r"response_format|json_object|json mode|response_mime_type", r.text, re.I):
+                # this server does not support constrained JSON decoding: ask again without it (the reply is
+                # still checked against the schema by agents.parse_critique)
+                del body["response_format"]
+                constrained = False
+                last = f"HTTP {r.status_code}: response_format not supported"
+                continue
             if r.status_code in (401, 403, 404) or (r.status_code == 400 and ("model" in r.text.lower() or "api key" in r.text.lower())):
                 raise StopRun(f"HTTP {r.status_code} (check the model name and API key): {r.text[:500]}")
             if r.status_code != 200:
@@ -124,7 +140,7 @@ class LLM:
             self.usage.seconds += time.time() - t
             self.usage.log.append({"role": role, "prompt_chars": len(system) + len(user), "reply_chars": len(text),
                                    "prompt_tokens": u.get("prompt_tokens"), "completion_tokens": u.get("completion_tokens"),
-                                   "finish_reason": finish})
+                                   "finish_reason": finish, "json_mode": constrained})
             pt, chars = int(u.get("prompt_tokens") or 0), len(system) + len(user)
             if self.provider == "ollama" and pt and chars > 8000 and chars / pt > 6:
                 # code is about 3-4 characters per token; far fewer tokens means Ollama cut the prompt to its

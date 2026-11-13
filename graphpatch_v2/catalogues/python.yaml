@@ -19,7 +19,12 @@ sinks:
     calls: [open, io.open, os.open, os.remove, os.unlink, os.rmdir, os.removedirs, os.makedirs, os.mkdir, os.rename,
             os.replace, os.listdir, os.scandir, os.chmod, shutil.rmtree, shutil.copy, shutil.copy2, shutil.copyfile,
             shutil.copytree, shutil.move, send_file, send_from_directory, FileResponse, read_text, read_bytes,
-            write_text, write_bytes, unlink, mkdir, rmdir, extract, extractall]
+            write_text, write_bytes, unlink, mkdir, rmdir, extract, extractall, save]
+    # which arguments carry the path (0-based; "receiver" = the object the method is called on). Sinks not
+    # listed here check every positional argument, then the receiver. v3.5: write_text/write_bytes take the
+    # path from the receiver, their argument is file content; save (Flask/Werkzeug FileStorage, PIL) takes
+    # the path as its first argument, and its receiver (the uploaded file) is not a path.
+    args: {save: [0], write_text: [receiver], write_bytes: [receiver]}
   CWE-078:
     calls: [os.system, os.popen, os.execl, os.execlp, os.execv, os.execvp, os.spawnl, os.spawnlp, subprocess.call,
             subprocess.run, subprocess.Popen, subprocess.check_call, subprocess.check_output, subprocess.getoutput,

@@ -45,6 +45,8 @@ LOOP_MODES = {
     "seeded": ("graph", True, True),
 }
 LLM_MODES = tuple(LOOP_MODES) + ("single",)
+# GraphPatch itself uses the ML components (paper Sec. IV-D); the baselines and ablations do not
+ML_MODES = ("full", "seeded")
 MODES = LLM_MODES + ("rule", "oracle", "noop")
 
 
@@ -63,6 +65,10 @@ class Config:
     fuzzy_edits: bool = True       # edit-distance SEARCH placement (off in --paper-mode)
     strict_guards: bool = True     # stricter guard recognition (off in --paper-mode)
     structured_critic: bool = True # Critic answers in checked JSON (--free-critic for the paper's free-text Critic)
+    tfidf_log: bool = True         # ml.py: TF-IDF key terms of build/test logs for the Critic (--no-tfidf-log)
+    memory: Path | None = None     # ml.py: fix memory, KNN + cosine retrieval of past verified fixes (--memory)
+    memory_k: int = 3              # how many past fixes the Planner sees
+    memory_build: bool = False     # True: store verified fixes of training-split CVEs, do not retrieve (--memory-build)
     llm: LLM | None = None
 
 
@@ -79,6 +85,9 @@ def run_cve(cve: CVE, ds: Dataset, mode: str, cfg: Config) -> dict:
            "model": getattr(cfg.llm, "model", "") if mode in LLM_MODES else "",
            "status": "error", "stage": "setup", "iterations": 0,
            "critic": "json" if cfg.structured_critic else "free",
+           "tfidf_log": bool(cfg.tfidf_log and mode in ML_MODES),
+           "memory": str(cfg.memory) if cfg.memory and mode in ML_MODES else None,
+           "memory_build": bool(cfg.memory_build) if cfg.memory else None,
            "paper_mode": not (cfg.structured_critic or cfg.fuzzy_edits or cfg.strict_guards)}
     transcript = []
     ws = None
@@ -163,8 +172,18 @@ def run_cve(cve: CVE, ds: Dataset, mode: str, cfg: Config) -> dict:
             # seeded: the rule's patch is the first candidate and costs no model call; it counts against the budget
             seed = rule_patch(ws.path, cve.cwe, before) if mode == "seeded" else ""
             row["seeded"] = bool(seed) if mode == "seeded" else None
+            plan_ctx = ctx
+            if cfg.memory and mode in ML_MODES and not cfg.memory_build:
+                from . import ml
+                mem = ml.FixMemory(cfg.memory)
+                hits = mem.query(graph_ctx, cve.cve_id, cve.repo_url, cve.cwe, k=cfg.memory_k)
+                row.update(memory_embedder=mem.embedder.kind if hits else None,
+                           memory_hits=[h.cve for h in hits], memory_similarity=[h.similarity for h in hits])
+                if hits:
+                    plan_ctx = ctx + "\n\n" + ml.render_examples(hits)
+                    (art / "memory_examples.txt").write_text(ml.render_examples(hits), encoding="utf-8")
             if multi and not seed:
-                plan = _ask(cfg.llm, "planner", agents.planner_prompt(cve, ctx), transcript)
+                plan = _ask(cfg.llm, "planner", agents.planner_prompt(cve, plan_ctx), transcript)
                 (art / "plan.md").write_text(plan, encoding="utf-8")
             critique, prev = "", ""
             for it in range(1, cfg.max_iters + 1):
@@ -175,7 +194,7 @@ def run_cve(cve: CVE, ds: Dataset, mode: str, cfg: Config) -> dict:
                     transcript.append({"role": "rule", "prompt": "", "reply": reply})
                 else:
                     if multi and not plan:
-                        plan = _ask(cfg.llm, "planner", agents.planner_prompt(cve, ctx), transcript)
+                        plan = _ask(cfg.llm, "planner", agents.planner_prompt(cve, plan_ctx), transcript)
                         (art / "plan.md").write_text(plan, encoding="utf-8")
                     reply = _ask(cfg.llm, "coder", agents.coder_prompt(cve, ctx, plan, critique, prev,
                                                                         prev_by_rule=bool(seed) and it == 2), transcript)
@@ -184,11 +203,20 @@ def run_cve(cve: CVE, ds: Dataset, mode: str, cfg: Config) -> dict:
                     break
                 prev = (art / f"patch_{it}.diff").read_text(encoding="utf-8", errors="replace") if (art / f"patch_{it}.diff").exists() else ""
                 fb = verdict.feedback if path_gate else _strip_graph(verdict)
+                if cfg.tfidf_log and mode in ML_MODES:
+                    from . import ml
+                    fb, kws = ml.augment_feedback(fb, verdict.stage)
+                    if kws:
+                        row.setdefault("tfidf_keywords", []).append(kws)
                 # the single-agent baseline gets the raw validator output instead of a Critic's analysis
                 critique = _critic(cfg, cve, prev, fb, verdict, path_gate, transcript, row, art, it) if multi else fb
         if verdict is not None:
             verdict = validator.final(verdict, pov, graph_ref, cq)  # held-out oracles, run once on the final patch
             (art / "verdict_final.json").write_text(json.dumps(verdict.to_dict(), indent=2), encoding="utf-8")
+            if cfg.memory and cfg.memory_build and mode in ML_MODES and verdict.status == "verified":
+                from . import ml
+                row["memory_stored"] = ml.FixMemory(cfg.memory, exclude=ml.read_cve_list(ml.EVAL_SET)).add(
+                    cve.cve_id, cve.repo_url, cve.cwe, graph_ctx, plan, ws.diff(), mode=mode, model=row.get("model", ""))
         row.update(_verdict_fields(verdict))
         if ws:
             (art / "final.diff").write_text(ws.diff(), encoding="utf-8")
@@ -210,10 +238,10 @@ def run_cve(cve: CVE, ds: Dataset, mode: str, cfg: Config) -> dict:
 
 # ------------------------------------------------------------------ helpers
 
-def _ask(llm: LLM | None, role: str, prompt: str, transcript: list) -> str:
+def _ask(llm: LLM | None, role: str, prompt: str, transcript: list, json_mode: bool = False) -> str:
     if llm is None:
         raise LLMError("this mode needs a model: pass --provider/--model and set the API key")
-    reply = llm.chat(agents.SYSTEM, prompt, role=role)
+    reply = llm.chat(agents.SYSTEM, prompt, role=role, json_mode=json_mode)
     transcript.append({"role": role, "prompt": prompt, "reply": reply})
     return reply
 
@@ -222,10 +250,15 @@ def _critic(cfg: Config, cve: CVE, diff: str, feedback: str, verdict: Verdict, p
             transcript: list, row: dict, art: Path, it: int) -> str:
     """Ask the Critic for a JSON critique, check it, and return the text the Coder reads.
     A reply that is not valid JSON is passed on as it is and counted, so a run never stops on it."""
-    reply = _ask(cfg.llm, "critic", agents.critic_prompt(cve, diff, feedback, structured=cfg.structured_critic), transcript)
+    reply = _ask(cfg.llm, "critic", agents.critic_prompt(cve, diff, feedback, structured=cfg.structured_critic), transcript,
+                 json_mode=cfg.structured_critic)
     if not cfg.structured_critic:
         return reply
     row["critic_calls"] = row.get("critic_calls", 0) + 1
+    log = getattr(getattr(cfg.llm, "usage", None), "log", None)
+    last = log[-1] if log else {}
+    if last.get("json_mode"):
+        row["critic_constrained"] = row.get("critic_constrained", 0) + 1
     crit, why = agents.parse_critique(reply)
     record = {"iteration": it, "valid": crit is not None, "error": why, "critique": crit}
     if crit is None:

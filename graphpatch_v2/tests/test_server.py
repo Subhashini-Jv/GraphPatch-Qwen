@@ -153,7 +153,7 @@ def test_python_project_scan_and_agent_repair_with_scripted_model(tmp_path, monk
             from graphpatch_v2.llm import Usage
             self.usage, self.timeout, self.max_attempts, self.on_retry, self.retry_empty = Usage(), 0, 0, None, False
 
-        def chat(self, system, user, role=""):
+        def chat(self, system, user, role="", json_mode=False):
             assert "Python" in system and "Java source level" not in user
             if role == "planner":
                 return "- shell=True with request input: use an argument list"

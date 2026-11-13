@@ -1,152 +1,172 @@
-# GraphPatch (enhanced project)
+# GraphPatch
 
-**A zero-cost, graph-verified multi-agent framework for automated vulnerability remediation (Java).**
+**Graph-verified, multi-agent repair of security vulnerabilities in Java, with free and open-source tools.**
 
-An LLM Planner, Coder and Critic repair a vulnerability in a loop. One source-to-sink **taint graph** chooses the code the agents see and acts as a **security gate**: a patch is accepted only when it compiles, keeps the tests passing **and** closes the vulnerable path. Final verdicts use **held-out oracles** that no agent sees.
+GraphPatch finds source-to-sink vulnerabilities with a taint graph and repairs them with an LLM Planner, Coder and Critic working in a loop. The same taint graph decides which code the agents see and acts as a **security gate**. A patch is accepted only if it compiles, keeps the existing tests passing **and** closes the vulnerable path. Final verdicts come from **held-out oracles** that no agent sees.
+
+It runs with a local open-weight model (Qwen2.5-Coder through Ollama, no key, offline) or any OpenAI-compatible API (Gemini, Groq, OpenRouter, DeepSeek, OpenAI).
 
 ---
-## 1. Paper → code: where every part of the paper is
 
-### Approach (Section III)
+## 1. How it works
 
-| Paper | What it is | Code |
+```
+Java project ──► Taint graph ──► vulnerable paths ──► path-sliced context
+                                                           │
+             ┌─────────────────────────────────────────────┘
+             ▼
+        Planner ──► Coder ──► G1 compile ──► G2 tests ──► G3 taint graph ──► accepted
+                      ▲                 (first failing gate)                    │
+                      └──────── Critic ◄──────────────────────┘                 ▼
+                                                                    held-out oracles: Verified / Plausible / Rejected
+```
+
+| Part | What it does | Code |
 |---|---|---|
-| III-A, Eq. (1) | Vulnerable paths P(R) = flows from sources to sinks that pass no sanitizer | `taint.py`: `find_paths()`, `TargetSpec`; per-CWE catalogues declared in `catalogues/java.yaml` (loaded by `catalogue.py`) |
-| III-B | Taint graph: data flow in a method, field flow in a class, call edges, fixed-point propagation, up to 60 same-package files, guards clean variables | `taint.py`: `TaintAnalysis.run()` (fixed point), `_stmt()`, `_expr()`, `_call()`, `same_package_files(limit=60)` |
-| III-C | Path-sliced context: at most 8 paths, imports/header/fields, at most 12 methods | `agents.py`: `graph_context()` (whole-file baseline: `file_context()`) |
-| III-D | Planner, Coder, Critic, Validator | `agents.py`: `planner_prompt()`, `coder_prompt()`, `critic_prompt()`; `validator.py`: `Validator` |
-| III-D | SEARCH/REPLACE edits, exact and whitespace-tolerant matching, near-miss feedback, whole patch discarded on a failed block | `javasrc.py`: `parse_edits()`, `apply_edits()`, `_loose_find()`, `_near_miss()` |
-| **Algorithm 1** | Graph-verified repair loop: G1 compile → G2 tests vs. baseline → G3 security; first failure goes to the Critic; up to K iterations; no fallback to an earlier candidate | `pipeline.py`: `run_cve()` (the `for it in range(1, cfg.max_iters + 1)` loop); gates in `validator.py`: `Validator.check()`, `loop_accepts()`; Maven/Gradle, Docker or local JDKs in `build.py` |
-| III-E | Developer tooling: SARIF 2.1.0 export with CI workflow, 0–100 risk score, pre-commit hook, JUnit attack tests, OSV dependency check, FastAPI web UI | `sarif.py`, `scanner.py: risk()`, `precommit.py`, `attacktest.py`, `deps.py`, `server.py` + `web/`, CI files in `github/` |
+| Taint analysis | Inter-procedural flow from sources (request getters, archive entry names, parameters of vulnerable methods) to sinks (file, process, expression and output APIs). It follows data flow in a method, field flow in a class and call edges between methods, across up to 60 files of the same package. A sanitizer or guard such as `if (!f.getCanonicalPath().startsWith(base)) throw ...` cleans a variable from that line on. | `taint.py` (`TaintAnalysis`, `find_paths`) |
+| Fixed-point propagation | Taint is propagated over all methods round after round until no new parameter, field, return value or finding is added. | `taint.py` (`TaintAnalysis.run`) |
+| Source / sink catalogues | Sources, sinks, sanitizers and guards for CWE-22, 78, 79 and 94 are declared in YAML, not hard-coded. | `catalogues/*.yaml`, `catalogue.py` |
+| Java parsing | Java source is parsed into an abstract syntax tree with `javalang`. | `javasrc.py`, `taint.py` |
+| Path-sliced context | The agents see the vulnerable paths (at most 8), the imports, class header and fields, and the methods on those paths (at most 12). They do not see whole files. | `agents.py` (`graph_context`) |
+| Planner, Coder, Critic | The Planner says where to break each path. The Coder writes SEARCH/REPLACE edits. The Critic is called only after a gate fails and explains what to change. | `agents.py`, `pipeline.py` |
+| Edit application | Each SEARCH block is placed by exact match, then by whitespace-tolerant line match, then by similarity (a same-length window at least 90% similar by `difflib`, and clearly better than any rival). If one block fails, the whole patch is discarded. | `javasrc.py` (`apply_edits`, `_loose_find`, `_fuzzy_find`) |
+| Gates | G1 compiles main and test sources. G2 runs the tests and compares them with a baseline run on the unpatched code, so only new failures count. G3 rebuilds the taint graph and requires every path to be gone. | `validator.py`, `build.py` (Maven or Gradle, Docker or local JDKs) |
+| Held-out oracles | Graph-versus-fix comparison, proof-of-vulnerability tests and, optionally, CodeQL. These run once on the final patch. | `validator.py` (`final`), `codeql_oracle.py` |
 
-### Experimental setup (Section IV)
+### Machine-learning components
 
-| Paper | What it is | Code |
-|---|---|---|
-| IV-A | CWE-Bench-Java, perfect fault localization | `dataset.py` (clones the benchmark), `workspace.py` (checkouts) |
-| IV-B, Table I | Calibration of the gate on vulnerable vs. fixed code | `calibrate.py`; `python -m graphpatch_v2.run_eval calibrate`; result in `sample_results/calibration.csv` |
-| IV-B | Harness checks (no change must never verify, developers' fix should) | modes `noop` and `oracle` in `pipeline.py`; result in `sample_results/sanity_noop_oracle.csv` |
-| IV-B | Vul4J calibration | `vul4j_bench.py`, `benchmarks/` |
-| IV-C | Held-out oracles: graph-versus-fix, PoV tests, verdicts Verified / Plausible / Rejected | `validator.py`: `prepare_graph_reference()`, `prepare_pov()`, `final()` |
-| IV-D | B0 rule, B1 single prompt, B3 multi-agent tests only, GraphPatch (K = 3) | modes `rule`, `single`, `nograph`, `full` (table at the top of `pipeline.py`); extra ablations `filectx`, `nogate`, `agent` |
-| IV-E, Table II | One OpenAI-compatible client: Gemini free tier at temperature 0 (5 req/min, resumes next day), or Qwen2.5-Coder via Ollama | `llm.py` (`--provider`, `--model`, `--rpm`), `run_eval.py --skip-done`, `daily_run.ps1` |
-
-### Results (Section V)
-
-| Paper | Code |
-|---|---|
-| Tables III, IV | `python -m graphpatch_v2.run_eval summarize`; LaTeX numbers via `fill_results.py` |
-| V-B Wilson 95 % intervals and exact McNemar tests | `stats.py` (`python -m graphpatch_v2.stats ...`); `tests/test_stats.py` reproduces the paper's 35–88 %, 27–81 %, p = 0.25 and p = 1.0 from Table III |
-| V-C Security gate stopping test-passing patches | per-iteration `verdict_N.json` in the run artifacts (`stage: graph`) |
-| V-D Context size and tokens | recorded per run in `runs.jsonl` (`graph_context_chars`, `file_context_chars`, `prompt_tokens`, ...) |
-
-**Everything the paper describes is implemented.** To reproduce the paper's runs exactly, add `--paper-mode` to `run_eval run` (it switches off every enhancement of Section 2).
-
-## 2. Enhancements beyond the paper
-
-These come from the paper's own Section VI-C (Threats to Validity) and Section VII (Future Work). They are on by default; `--paper-mode` turns them all off (the last two change no result, so they need no switch).
-
-| Enhancement | Why (paper) | Code | Switch |
+| Component | What it does | Code | Switch |
 |---|---|---|---|
-| **Edit-distance SEARCH placement**: when exact and whitespace-tolerant matching fail, a SEARCH block is placed at the same-length window that is ≥ 90 % similar (difflib ratio) and 5 points better than any rival; never for one-line, ambiguous or different-length blocks | VII: "Edit-distance matching of SEARCH blocks would recover the edit-format failures seen on CVE-2022-31194" | `javasrc.py`: `_fuzzy_find()` | `--paper-mode` |
-| **Structured Critic**: the Critic is asked for JSON (root cause + up to 6 instructions with file, method, line, variable, action); the harness validates it, measures how many surviving paths it addresses, and falls back to the raw text if it is not valid JSON | VII: "a Critic constrained to structured JSON output would make its feedback machine-checkable" | `agents.py`: `parse_critique()`, `render_critique()`, `critique_coverage()`; `pipeline.py: _critic()` | `--free-critic` or `--paper-mode` |
-| **Stricter guard recognition**: `equals` / `contains` / `indexOf` / `matches` count as a guard only as a negated allow-list or a block-list with a dangerous literal, so `if (name.equals("")) throw` no longer clears a path | VI-C: "a check that tests nothing useful ... is enough to clear a path" | `taint.py`: `_meaningful()` | `--paper-mode` |
-| **Rule-seeded mode `seeded`**: the B0 rule's patch is candidate 1; the agents take over only if it fails a gate | VI-A: "Seeding the Coder with the rule's patch as its first candidate is a natural combination" | `pipeline.py` (mode `seeded`) | separate mode |
-| **CodeQL held-out oracle**: CodeQL runs on the vulnerable code, the developers' fix and the final patch; a patch must remove what the fix removes and add no new alert | VI-C: "The graph-versus-fix oracle uses the same query as gate G3, which favors GraphPatch"; VII: sound dataflow analysis | `codeql_oracle.py` | `--codeql-oracle` |
-| **Statistics of Section V-B**: Wilson intervals and exact McNemar tests | V-B | `stats.py` (reproduces 35–88 %, 27–81 %, p = 0.25 and 1.0) | — |
-| **Declarative language catalogue**: every Java source, sink, sanitizer and guard of the taint graph is declared in a YAML file instead of being hard-coded; a test checks it is identical to the former in-code catalogue, so all results are unchanged | VII: "declarative per-language catalogues of sources, sinks and guards" | `catalogues/java.yaml`, `catalogue.py` | always on (no behaviour change) |
-| **NetworkX program graph**: all taint paths of a project are joined into one NetworkX `DiGraph` (shared statements are one node) to report reachable sinks, hot files and choke points (betweenness centrality: where one guard breaks the most paths), and to export GraphML / GEXF / JSON. The taint propagation itself is still the fixed-point analysis in `taint.py` | III-B (code graph) | `graph.py`; `python -m graphpatch_v2.graph <project> --out g.graphml`; web: `/api/scan/{id}/graph` | always on (reporting only) |
-| **Python and JavaScript front end**: Python (Flask/Django-style) and JavaScript (Node/Express) projects are scanned with Tree-sitter, driven by `catalogues/python.yaml` and `catalogues/javascript.yaml` (sources, sinks for CWE-22, 78, 79 and 94, sanitizers, guards). The analysis is per function (plus module level) with guard and sanitizer recognition; results feed the same NetworkX graph and the same Planner/Coder/Critic repair loop in the web app, and a patch is checked by re-parsing it with Tree-sitter and re-running the taint graph. Not evaluated in the paper: the benchmark, the B0 rule fix, the attack tests and the library (OSV) checks stay Java-only | VII: "A Tree-sitter front end would let one graph serve several languages" | `polyglot.py`, `catalogues/python.yaml`, `catalogues/javascript.yaml`; `scanner.py`, `server.py` | always on for `.py` / `.js` files (Java analysis unchanged) |
+| **Constrained JSON decoding** | The Critic call sends `response_format={"type":"json_object"}`, so the model can only produce valid JSON. The reply is then checked against a schema (root cause plus 1 to 6 instructions with file, method, line, variable and action). If a server rejects the option, the call is sent once more without it. | `llm.py` (`chat(json_mode=True)`), `agents.py` (`parse_critique`) | on (`GP_LLM_JSON_MODE=0` turns it off) |
+| **TF-IDF log analysis** | Each line of a compile or test log is one document. The top TF-IDF terms over the error lines, and the error lines that carry them, are given to the Critic before the full log. | `ml.py` (`log_keywords`, `augment_feedback`) | on in `full`/`seeded` (`--no-tfidf-log` turns it off) |
+| **Fix memory (retrieval-augmented generation)** | Holds up to 10 verified fixes from a training split (CVEs outside `paper_cves.txt`), filled by a separate `--memory-build` run and only read during evaluation. Before the Planner runs, the new context is embedded and the *k* nearest stored fixes by cosine similarity (k-nearest neighbours) are added as examples. Embeddings come from `all-MiniLM-L6-v2` (384 dimensions, `sentence-transformers`); TF-IDF vectors are only a fallback, with a warning. Fixes from the same CVE or the same repository are never retrieved. | `ml.py` (`Embedder`, `FixMemory`) | on in `full`/`seeded` (default `results/fix_memory.jsonl`; `--no-memory`, `--memory PATH`, `--memory-k 3`, `--memory-build`) |
+| **K-Means difficulty clusters** | CVEs are clustered into Easy, Medium and Hard from the number of taint paths and the code size (log-scaled, z-scored, k-means++ with 20 restarts). The script reports verified counts per cluster and system, and the silhouette score. | `analyze_clusters.py` | separate script |
 
-The calibration of Table I was re-run with the stricter guards on all 120 CVEs: every count is unchanged. Results of the enhanced modes have not been measured with a model yet; they are not part of the paper.
+### Graph analytics and statistics
+
+| Component | What it does | Code |
+|---|---|---|
+| Program-wide taint graph | All paths are joined into one NetworkX directed graph. It reports reachable sinks, the files with the most tainted flow, choke points ranked by betweenness centrality (where one guard breaks the most paths), and the longest path. It exports GraphML, GEXF or JSON. | `graph.py` |
+| Wilson score interval | 95% confidence interval for the share of verified fixes; suited to small samples. | `stats.py` (`wilson`) |
+| Exact McNemar test | Paired comparison of two systems on the same CVEs (two-sided binomial test on the discordant pairs). | `stats.py` (`mcnemar_exact`) |
+| Risk score | A 0–100 score built from a base per CWE plus points for the kind of input, a destructive sink and the path length. It is a triage aid, not a probability. | `scanner.py` (`risk`) |
+
+### Repair modes
+
+| Mode | Context | Gates in the loop | Agents |
+|---|---|---|---|
+| `full` | taint paths | compile + tests + taint graph | Planner, Coder, Critic |
+| `seeded` | taint paths | compile + tests + taint graph | the rule patch is tried first; the agents run only if it fails a gate |
+| `filectx` | whole files | compile + tests + taint graph | Planner, Coder, Critic |
+| `nogate` | taint paths | compile + tests | Planner, Coder, Critic |
+| `nograph` | whole files | compile + tests | Planner, Coder, Critic |
+| `agent` | whole files | compile + tests | one Coder with raw feedback |
+| `single` | whole files | none (one call) | one Coder |
+| `rule` | taint paths | none | no model: a fixed containment check |
+| `oracle` / `noop` | the developers' fix / no change | — | harness checks |
+
+`--core-only` switches off the similarity edit placement, the JSON Critic and the stricter guard rules, leaving the core method only.
 
 ---
 
-## 3. Install
+## 2. Install
 
-Requirements: Python 3.10+, git, JDK 8 and 17 + Maven (or Docker), and one model:
-a free Gemini API key (https://aistudio.google.com) **or** Ollama with Qwen2.5-Coder (no key, runs offline).
+You need Python 3.10+, git, JDK 8 and 17 with Maven (or Docker), and one model.
 
 ```bash
 cd GraphPatch-Qwen-v3
 python -m pip install -r graphpatch_v2/requirements.txt
-python -m pytest graphpatch_v2/tests          # 120 passed, 1 skipped
+python -m pip install sentence-transformers      # all-MiniLM-L6-v2 embeddings for the fix memory (in requirements.txt)
+python -m pytest graphpatch_v2/tests
 ```
 
 Model setup (pick one):
 
 ```bash
-# Gemini, free tier
-export GEMINI_API_KEY=...                       # PowerShell: $env:GEMINI_API_KEY = "..."
-
-# Qwen2.5-Coder on Ollama (Ollama cuts prompts at 2,048 tokens by default; this makes a 24k copy)
+# Qwen2.5-Coder on Ollama (Ollama cuts prompts at 2,048 tokens by default; this makes a 24k-context copy)
 ollama pull qwen2.5-coder:7b
 printf 'FROM qwen2.5-coder:7b\nPARAMETER num_ctx 24576\n' > Modelfile.qwen
 ollama create qwen2.5-coder-24k -f Modelfile.qwen
+
+# or a hosted API (Gemini shown; GROQ_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, OPENAI_API_KEY also work)
+export GEMINI_API_KEY=...                       # PowerShell: $env:GEMINI_API_KEY = "..."
 ```
 
-Optional, for the CodeQL oracle: download the CodeQL **bundle** from https://github.com/github/codeql-action/releases, unpack it, set `CODEQL=/path/to/codeql`, then check with `python -m graphpatch_v2.codeql check`.
+Optional, for the CodeQL oracle: download the CodeQL **bundle** from https://github.com/github/codeql-action/releases, unpack it, set `CODEQL=/path/to/codeql`, and check it with `python -m graphpatch_v2.codeql check`.
 
 ---
 
-## 4. Run
+## 3. Run
 
-The 9 paper CVEs: `CVE-2022-25842 CVE-2018-1002201 CVE-2018-1002200 CVE-2018-1002202 CVE-2018-17297 CVE-2020-35460 CVE-2018-12036 CVE-2022-31194 CVE-2022-26049` (also in `graphpatch_v2/paper_cves.txt`).
-
-**Everything in one go (Qwen, local):**
+**Benchmark CVEs** (CWE-Bench-Java, all CWE-22): `CVE-2022-25842 CVE-2018-1002201 CVE-2018-1002200 CVE-2018-1002202 CVE-2018-17297 CVE-2020-35460 CVE-2018-12036 CVE-2022-31194 CVE-2022-26049`
 
 ```bash
-./run_qwen.sh                    # Windows: .\run_qwen.ps1
-GP_CODEQL=1 ./run_qwen.sh        # Windows: .\run_qwen.ps1 -CodeQL     (also judge with CodeQL)
-GP_PAPER_MODE=1 ./run_qwen.sh    # Windows: .\run_qwen.ps1 -PaperMode  (exactly as in the paper)
+M="--provider ollama --model qwen2.5-coder-24k"     # or: --provider gemini --model <model-name> --rpm 5 --skip-done
+CVES="--cves CVE-2022-25842 CVE-2018-1002201 CVE-2018-1002200 CVE-2018-1002202 CVE-2018-17297 CVE-2020-35460 CVE-2018-12036 CVE-2022-31194 CVE-2022-26049"
+
+python -m graphpatch_v2.run_eval calibrate                       # how well the taint graph agrees with real fixes (no model)
+python -m graphpatch_v2.run_eval run --mode noop   $CVES         # harness check: must never verify
+python -m graphpatch_v2.run_eval run --mode oracle $CVES         # harness check: the developers' fix should verify
+python -m graphpatch_v2.run_eval run --mode rule   $CVES         # rule-based fix (no model)
+python -m graphpatch_v2.run_eval run --mode single  $M $CVES     # single prompt
+python -m graphpatch_v2.run_eval run --mode nograph $M $CVES     # multi-agent, tests only
+python -m graphpatch_v2.run_eval run --mode full    $M $CVES     # GraphPatch
+python -m graphpatch_v2.run_eval run --mode seeded  $M $CVES     # GraphPatch + rule seed
+
+# machine-learning options (add to any agent mode)
+python -m graphpatch_v2.run_eval run --mode full $M --memory-build --cves <training CVEs>   # fill the fix memory first (never paper_cves.txt)
+python -m graphpatch_v2.run_eval run --mode full $M $CVES                                      # TF-IDF and fix memory are on by default
+
+# results
+python -m graphpatch_v2.run_eval summarize
+python -m graphpatch_v2.stats gp_runs/results/runs.jsonl --model <model-name>              # Wilson + McNemar
+python -m graphpatch_v2.analyze_clusters gp_runs/results/runs.jsonl --model <model-name>   # K-Means clusters
 ```
 
-**Step by step (any model):**
+Useful options: `--max-iters 3`, `--tests related` (faster), `--docker never`, `--codeql-oracle`, `--free-critic`, `--skip-done` (continue an interrupted set). Every run writes its prompts, replies, diffs, verdicts and critiques to `gp_runs/results/artifacts/<mode>/<cve>/`, and one record per run to `gp_runs/results/runs.jsonl`.
 
-```bash
-M="--provider gemini --model <gemini-model-name> --rpm 5 --skip-done"   # or: --provider ollama --model qwen2.5-coder-24k
-CVES="--cves-file graphpatch_v2/paper_cves.txt"
+**Notes on the machine-learning options.** The memory is built once from training-split CVEs (`--memory-build`) and is read-only during evaluation, so results do not depend on the order of the evaluated CVEs. With few CVEs, K-Means groups the cases but is not a statistical test; the script prints a note below 15 CVEs.
 
-python -m graphpatch_v2.run_eval calibrate                                # Table I (no model)
-python -m graphpatch_v2.run_eval run --mode noop   $CVES                  # harness check: must never verify
-python -m graphpatch_v2.run_eval run --mode oracle $CVES                  # harness check: developers' fix
-python -m graphpatch_v2.run_eval run --mode rule   $CVES                  # B0 (no model)
-python -m graphpatch_v2.run_eval run --mode single  $M $CVES              # B1
-python -m graphpatch_v2.run_eval run --mode nograph $M $CVES              # B3
-python -m graphpatch_v2.run_eval run --mode full    $M $CVES              # GraphPatch
-python -m graphpatch_v2.run_eval run --mode seeded  $M $CVES              # enhancement: rule-seeded (not in the paper)
-python -m graphpatch_v2.run_eval run --mode filectx $M $CVES              # ablation: whole files
-python -m graphpatch_v2.run_eval run --mode nogate  $M $CVES              # ablation: no security gate
-# add --paper-mode to reproduce the paper exactly; add --codeql-oracle to also judge with CodeQL
-
-python -m graphpatch_v2.run_eval summarize                                # Tables III and IV
-python -m graphpatch_v2.stats gp_runs/results/runs.jsonl --model <model-name>   # Wilson + McNemar
-python fill_results.py gp_runs/results/runs.jsonl --model <model-name> > paper/results.tex
-```
-
-On the free Gemini tier (20 requests a day) a full set takes several days; `--skip-done` continues where the last run stopped, and `graphpatch_v2/daily_run.ps1` does this automatically. Useful options: `--tests related` (faster), `--max-iters 3`, `--docker never`, `--free-critic` (the original free-text Critic).
-
-**Web workspace (`frontend/`, included in this zip and already built):**
+### Web workspace
 
 ```bash
 python -m graphpatch_v2.server        # open http://localhost:8000  (no Node or npm needed)
 ```
 
-The zip contains the `frontend/` folder: `frontend/dist/` is the ready-built page the server shows at `/`, and `frontend/src/` is its React source. In the browser you can scan a project (ZIP upload, public GitHub URL, pasted Java, Python or JavaScript code, or the bundled sample), see each taint path as a graph, repair it with the agents or the no-model rule fix while the steps stream live, review the patch side by side, download the patched project, and see benchmark verdicts. Repair with agents needs the model variables of Section 3 set before the server starts; the rule fix needs nothing (it handles Java path traversal only).
+You can scan a project (ZIP upload, public GitHub URL, pasted Java, Python or JavaScript code, or the bundled sample), see each taint path as a graph, and repair it with the agents or the no-model rule fix while the steps stream live. You can also review the patch side by side and download the patched project. `frontend/dist/` is the prebuilt page and `frontend/src/` is its React source. To change it: `cd frontend && npm install && npm run dev`, then `npm run build`.
 
-- Node.js and npm are only needed to change the frontend: `cd frontend && npm install && npm run dev` (details in `frontend/README.md`), then `npm run build` to update `frontend/dist/`.
-- If `frontend/dist/` is missing, the server still starts and shows the original one-page UI instead; that UI is always available at `/classic`.
-
-**Developer tools (no model, no key):**
+### Developer tools (no model, no key)
 
 ```bash
-python -m graphpatch_v2.sarif <project> --out graphpatch.sarif   # SARIF 2.1.0 for GitHub code scanning
-python -m graphpatch_v2.attacktest <project> --out DIR      # JUnit attack tests for path traversal
-python -m graphpatch_v2.deps <project>                      # Maven/Gradle dependencies against OSV
-python -m graphpatch_v2.precommit --install                 # git pre-commit hook
+python -m graphpatch_v2.sarif <project> --out graphpatch.sarif   # SARIF 2.1.0 for code scanning in CI
+python -m graphpatch_v2.graph <project> --out graph.graphml       # program-wide taint graph and choke points
+python -m graphpatch_v2.attacktest <project> --out DIR           # JUnit attack tests for path traversal
+python -m graphpatch_v2.deps <project>                           # Maven/Gradle dependencies against OSV
+python -m graphpatch_v2.precommit --install                      # git pre-commit hook
 ```
 
-Every run writes its prompts, replies, diffs, verdicts and critiques to `gp_runs/results/artifacts/<mode>/<cve>/`.
+Python (Flask/Django style) and JavaScript (Node/Express) projects are also scanned, with Tree-sitter (`polyglot.py`). The benchmark, the rule fix, the attack tests and the dependency check are Java only.
 
 ---
 
+## 4. Folder layout
+
+```
+README.md                this file
+run_qwen.sh / .ps1       run every mode on the benchmark CVEs with Qwen
+frontend/                React web workspace (prebuilt in frontend/dist)
+graphpatch_v2/
+  taint.py               taint analysis (fixed-point propagation)
+  javasrc.py             Java parsing and SEARCH/REPLACE edit application
+  agents.py              prompts, path-sliced context, Critic JSON schema
+  pipeline.py            the repair loop and all modes
+  validator.py build.py  gates and held-out oracles
+  llm.py                 one OpenAI-compatible client (constrained JSON decoding)
+  ml.py                  TF-IDF log analysis, embeddings, KNN fix memory
+  analyze_clusters.py    K-Means difficulty clusters
+  stats.py               Wilson intervals, exact McNemar tests
+  graph.py               NetworkX program graph
+  scanner.py server.py   project scanner, risk score, web API
+  catalogues/*.yaml      sources, sinks, sanitizers and guards for Java, Python and JavaScript
+  tests/                 unit and end-to-end tests
+```

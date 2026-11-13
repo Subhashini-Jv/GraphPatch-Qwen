@@ -196,8 +196,8 @@ function renderUpload(error = "") {
       </div>
     </form>`,
     code: `<form class="card pad src-pane" id="code-form">
-      <textarea id="code" class="inp mono" spellcheck="false" placeholder="Paste one Java class here…"></textarea>
-      <div class="row" style="margin-top:12px"><span class="faint small">One class, with its imports</span><span class="spacer"></span><button class="btn primary" type="submit">Scan</button></div>
+      <textarea id="code" class="inp mono" spellcheck="false" placeholder="Paste Java, Python or JavaScript code here…"></textarea>
+      <div class="row" style="margin-top:12px"><span class="faint small">One file, with its imports. The language is detected automatically.</span><span class="spacer"></span><button class="btn primary" type="submit">Scan</button></div>
     </form>`,
   };
   $("#scan-body").innerHTML = `
@@ -264,7 +264,7 @@ function renderScan() {
   $("#scan-body").innerHTML = `
   <div class="card scan-head fade-in">
     <div class="row scan-stats">
-      ${stat("Project", esc(s.name))}${stat("Java files", s.files)}${stat("Attack paths", `<span style="color:${fs.length ? "var(--sink)" : "var(--ok)"}">${fs.length}</span>`)}${stat("Scan time", fmtSec(s.seconds))}
+      ${stat("Project", esc(s.name))}${stat("Source files", s.files)}${stat("Attack paths", `<span style="color:${fs.length ? "var(--sink)" : "var(--ok)"}">${fs.length}</span>`)}${stat("Scan time", fmtSec(s.seconds))}
       <span class="spacer"></span><button class="btn sm" id="new-scan">New scan</button>
     </div>
     <div class="scan-actions">

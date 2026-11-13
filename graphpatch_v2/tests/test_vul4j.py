@@ -162,7 +162,7 @@ def test_broken_patch_is_rejected_but_pov_is_still_recorded(bench, monkeypatch):
     class FakeLLM:
         model = "fake"
         usage = type("U", (), {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0})()
-        def chat(self, system, prompt, role=""):
+        def chat(self, system, prompt, role="", json_mode=False):
             return patch
     cfg.llm = FakeLLM()
     r = run_cve(ds.get("VUL4J-99"), ds, "single", cfg)
@@ -230,7 +230,7 @@ class _ScriptedLLM:
         self.prompts = []
         self.usage = type("U", (), {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0})()
 
-    def chat(self, system, prompt, role=""):
+    def chat(self, system, prompt, role="", json_mode=False):
         self.roles.append(role)
         self.prompts.append(prompt)
         self.usage.calls += 1
@@ -343,3 +343,59 @@ def test_paper_mode_guard_rules():
         assert find_paths(d, spec) == []            # the paper's rule: any equals() check clears it
     finally:
         taint.STRICT_GUARDS = True
+
+
+# ---- ml.py options, end to end
+
+def test_fix_memory_feeds_the_planner_and_stores_the_verified_fix(bench, monkeypatch):
+    pytest.importorskip("sklearn")
+    from graphpatch_v2 import ml
+    monkeypatch.setenv("GP_EMBED_MODEL", "tfidf")
+    ds, cfg, _ = bench
+    cfg.memory = cfg.root / "memory.jsonl"
+    ml.FixMemory(cfg.memory).add("CVE-2000-1", "https://github.com/other/zip", "CWE-022",
+                                 "ZipEntry entry getName new File dir FileOutputStream extract Unzip",
+                                 "", "+ if (!f.getCanonicalPath().startsWith(base)) throw new IOException();")
+    ml.FixMemory(cfg.memory).add("CVE-2099-0001", "https://github.com/demo/unzip", "CWE-022",
+                                 "ZipEntry same project", "", "+ the answer itself")      # must never be shown
+    good = ('FILE: src/main/java/demo/Unzip.java\n<<<<<<< SEARCH\n' + _first_sink_line(ds, cfg) + '\n=======\n'
+            '        if (!file.getCanonicalPath().startsWith(dir.getCanonicalPath() + File.separator)) { throw new IOException("bad"); }\n'
+            + _first_sink_line(ds, cfg) + '\n>>>>>>> REPLACE\n')
+    cfg.llm = _ScriptedLLM(["plan", good])
+    r = run_cve(ds.get("VUL4J-99"), ds, "full", cfg)
+    assert r["status"] == "verified", r
+    assert r["memory_hits"] == ["CVE-2000-1"] and r["memory_embedder"] == "tfidf", r
+    assert "SIMILAR VERIFIED FIXES" in cfg.llm.prompts[0] and "the answer itself" not in cfg.llm.prompts[0]
+    assert "SIMILAR VERIFIED FIXES" not in cfg.llm.prompts[1]          # only the Planner sees the examples
+    stored = [json.loads(l) for l in cfg.memory.read_text().splitlines()]
+    assert len(stored) == 2 and not r.get("memory_stored")                 # evaluation runs only read the memory
+
+
+def test_memory_build_stores_training_fixes_and_retrieves_nothing(bench, monkeypatch):
+    pytest.importorskip("sklearn")
+    monkeypatch.setenv("GP_EMBED_MODEL", "tfidf")
+    ds, cfg, _ = bench
+    cfg.memory = cfg.root / "memory_build.jsonl"
+    cfg.memory_build = True
+    good = ('FILE: src/main/java/demo/Unzip.java\n<<<<<<< SEARCH\n' + _first_sink_line(ds, cfg) + '\n=======\n'
+            '        if (!file.getCanonicalPath().startsWith(dir.getCanonicalPath() + File.separator)) { throw new IOException("bad"); }\n'
+            + _first_sink_line(ds, cfg) + '\n>>>>>>> REPLACE\n')
+    cfg.llm = _ScriptedLLM(["plan", good])
+    r = run_cve(ds.get("VUL4J-99"), ds, "full", cfg)
+    assert r["status"] == "verified" and r["memory_stored"] is True and "memory_hits" not in r, r
+    stored = [json.loads(l) for l in cfg.memory.read_text().splitlines()]
+    assert stored[-1]["cve"] == "CVE-2099-0001" and "getCanonicalPath" in stored[-1]["diff"]
+
+
+def test_tfidf_log_option_adds_key_terms_for_the_critic(bench):
+    pytest.importorskip("sklearn")
+    ds, cfg, _ = bench
+    cfg.tfidf_log = True
+    cfg.max_iters = 2
+    broken = ('FILE: src/main/java/demo/Unzip.java\n<<<<<<< SEARCH\n        out.close();\n=======\n'
+              '        out.close(); // BREAK\n        if (!file.toPath().normalize().startsWith(dir.toPath())) throw new IOException();\n>>>>>>> REPLACE\n')
+    critique = '{"root_cause": "A test broke.", "instructions": [{"file": "src/main/java/demo/Unzip.java", "method": "extract", "line": 10, "variable": "file", "action": "do not break the test"}]}'
+    cfg.llm = _ScriptedLLM(["plan", broken, critique, broken])
+    r = run_cve(ds.get("VUL4J-99"), ds, "full", cfg)
+    assert cfg.llm.roles[:3] == ["planner", "coder", "critic"]
+    assert "KEY TERMS IN THE LOG (TF-IDF" in cfg.llm.prompts[2] and r.get("tfidf_keywords"), r
